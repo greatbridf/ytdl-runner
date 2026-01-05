@@ -1,0 +1,201 @@
+#!/bin/bash
+# shellcheck source="../libexec/lib.sh"
+
+base_path="$(dirname "$(dirname "$(realpath "$0")")")"
+lib_path="$base_path/lib"
+libexec_path="$base_path/libexec"
+tmp_path="$(mktemp -d)"
+
+. "$libexec_path/lib.sh"
+
+usage() {
+    cat >&2 <<EOF
+Usage: $0 [options] [URL] [-- [yt-dlp options]]
+
+options:
+    -c, --check-only               check only (don't actually download anything)
+    -f, --format <format>          specify the format to download
+    -a, --download-audio           alias of "-f 30280 -- --embed-thumbnail"
+    -p, --proxy <proxy>            use the given proxy server on downloading
+    -i, --interval <secs>          sleep for a while between videos
+    -h, --help                     show this message
+
+If URL is not given, read from stdin.
+
+EOF
+
+    exit "$1"
+}
+
+print_params() {
+    info "running with the following parameters:"
+    info "check_only=$check_only download_audio=$download_audio"
+    info "proxy=$proxy format=$format interval=$interval"
+    info "urls=$urls"
+    info "ytdlp_args=$*"
+    info ""
+    info ""
+}
+
+read_urls() {
+    while read -r url; do
+        urls="$urls $url"
+    done
+}
+
+process_url() {
+    for lib in $(iter_files_sorted "$lib_path"); do
+        if (. "$lib" && match "$1"); then
+            return
+        fi
+    done
+
+    echo "$1"
+}
+
+download_url() {
+    if [ -n "$check_only" ]; then
+        set -- "$@" -F
+    elif [ -n "$format" ]; then
+        set -- "$@" -f "$format" --embed-thumbnail
+    elif [ -n "$download_audio" ]; then
+        set -- "$@" -f 30280 --embed-thumbnail
+    fi
+
+    if [ -n "$proxy" ]; then
+        set -- "$@" --proxy "$proxy"
+    fi
+
+    yt-dlp "$@" "$url" | tee "$log_path"
+}
+
+reformat_bilibili_audios() {
+    log="$(cat "$log_path")"
+    outfilename="$(regex_search 'Adding thumbnail to "(.*\.m4a)"' "$log")"
+
+    [ -z "$outfilename" ] && error "could not find output filename" && return 1
+
+    basename="${outfilename%.*}"
+    aname="$basename.audio.m4a"
+    cname="$basename.cover.jpg"
+
+    pname="$basename.processed.m4a"
+
+    ffmpeg -i "$outfilename" -c copy -map 0:0 "$aname" || return 1
+    ffmpeg -i "$outfilename" -c copy -map 0:1 "$cname" || return 1
+    ffmpeg -i "$aname" -i "$cname" -map 0 -map 1 -disposition:v:0 attached_pic \
+        -c copy -f mp4 "$pname" || return 1
+
+    rm "$cname" "$aname" || return 1
+    mv "$pname" "$outfilename" || return 1
+
+    true
+}
+
+post_process() {
+    [ -n "$download_audio" ] && reformat_bilibili_audios
+
+    true
+}
+
+download_urls() {
+    _total=$(echo "$urls" | wc -w)
+
+    order=1
+    log_path="$tmp_path/$order.log"
+    for url in $urls; do
+        _pos_str="$(printf "(%4d/%4d)" "$order" "$_total")"
+
+        info "downloading $_pos_str..."
+
+        url="$(process_url "$url")"
+        info "effective url=$url"
+
+        if download_url "$@" && post_process; then
+            info "download $_pos_str: done!"
+        else
+            error "could not download $url"
+        fi
+
+        order=$((order + 1))
+
+        if [ -n "$interval" ]; then
+            info "wait for $interval sec(s) before continuing..."
+            sleep "$interval"
+        fi
+    done
+}
+
+run_interactive() {
+    print_params "$@"
+
+    if [ -z "$urls" ]; then
+        info "enter the URLs you'd like to operate on, one per line."
+        info "end with EOF."
+        read_urls
+
+        info "collected urls:"
+
+        order=1
+        for url in $urls; do
+            info "$(printf "%4d: %s" "$order" "$url")"
+            order=$((order + 1))
+        done
+    fi
+
+    download_urls "$@"
+
+    info "all done!"
+}
+
+run_non_interactive() {
+    if [ -z "$urls" ]; then
+        read_urls
+    fi
+
+    die not_implemented
+}
+
+while [ "$#" -ne 0 ]; do
+    case "$1" in
+        -c|--check-only)
+            check_only=1
+            ;;
+        -f|--format)
+            shift
+            format="$1"
+            ;;
+        -a|--download-audio)
+            download_audio=1
+            ;;
+        -p|--proxy)
+            shift
+            proxy="$1"
+            ;;
+        -i|--interval)
+            shift
+            interval="$1"
+            ;;
+        -h|--help)
+            usage 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            urls="$urls $1"
+            ;;
+    esac
+    shift
+done
+
+set -- "$@" --cookies-from-browser chrome
+
+# if [ -t 0 ]; then
+#     run_interactive "$@"
+# else
+#     run_non_interactive "$@"
+# fi
+
+run_interactive "$@"
