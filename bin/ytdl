@@ -126,6 +126,21 @@ download_urls() {
     done
 }
 
+check_bad_params() {
+    conflicting=0
+
+    [ "$check_only" ] && conflicting=$((conflicting + 1))
+    [ "$format" ] && conflicting=$((conflicting + 1))
+    [ "$download_audio" ] && conflicting=$((conflicting + 1))
+
+    if [ $conflicting -gt 1 ]; then
+        error "-c, -f, -a can't be selected at the same time"
+        return 1
+    fi
+
+    true
+}
+
 run_interactive() {
     print_params "$@"
 
@@ -189,6 +204,8 @@ while [ "$#" -ne 0 ]; do
     esac
     shift
 done
+
+check_bad_params || usage 1
 
 set -- "$@" --cookies-from-browser chrome
 
