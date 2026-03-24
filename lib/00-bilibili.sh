@@ -1,13 +1,13 @@
 #!/bin/bash
 
 bilibili_bvid() {
-    regex_search "(BV[a-zA-Z1-9]+)" "$1" && return
+    regex_search '[\/=](BV[a-zA-Z1-9]+)' "$1" && return
     regex_search "(av[0-9]+)" "$1" && return
     return 1
 }
 
 bilibili_epid() {
-    regex_search "(&p=[0-9]+)" "$1" && return
+    regex_search "&(p=[0-9]+)" "$1" && return
     return 1
 }
 
@@ -17,7 +17,7 @@ bilibili_url() {
 
     epid="$(bilibili_epid "$1")"
 
-    echo "https://www.bilibili.com/video/$bvid$epid"
+    echo "https://www.bilibili.com/video/$bvid/?$epid"
 }
 
 bilibili_short_url() {
