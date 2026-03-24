@@ -14,6 +14,7 @@ Usage: $0 [options] [URL] [-- [yt-dlp options]]
 
 options:
     -c, --check-only               check only (don't actually download anything)
+    -s, --select                   check and select a format to download
     -f, --format <format>          specify the format to download
     -a, --download-audio           alias of "-f 30280 -- --embed-thumbnail"
     -p, --proxy <proxy>            use the given proxy server on downloading
@@ -31,6 +32,7 @@ print_params() {
     info "running with the following parameters:"
     info "check_only=$check_only download_audio=$download_audio"
     info "proxy=$proxy format=$format interval=$interval"
+    info "select_download=$select_download"
     info "urls=$urls"
     info "ytdlp_args=$*"
     info ""
@@ -63,6 +65,18 @@ check_available_formats() {
     invoke_ytdlp "$@" | sed -E '1,/-----------/d;/done/d'
 }
 
+check_select_format() {
+    local IFS=$'\n'
+    select _fmt in $(check_available_formats "$@"); do
+        if [ -z "$_fmt" ]; then
+            continue
+        fi
+
+        awk '{print $1}' <<< "$_fmt"
+        break
+    done
+}
+
 download_url() {
     if [ -n "$proxy" ]; then
         set -- "$@" --proxy "$proxy"
@@ -71,6 +85,12 @@ download_url() {
     if [ "$check_only" ]; then
         check_available_formats "$@"
         return
+    fi
+
+    if [ "$select_download" ]; then
+        format="$(check_select_format "$@")"
+
+        info "selected format $format"
     fi
 
     if [ "$download_audio" ]; then
@@ -146,9 +166,10 @@ check_bad_params() {
     [ "$check_only" ] && conflicting=$((conflicting + 1))
     [ "$format" ] && conflicting=$((conflicting + 1))
     [ "$download_audio" ] && conflicting=$((conflicting + 1))
+    [ "$select_download" ] && conflicting=$((conflicting + 1))
 
     if [ $conflicting -gt 1 ]; then
-        error "-c, -f, -a can't be selected at the same time"
+        error "-c, -f, -a and -s can't be selected at the same time"
         return 1
     fi
 
@@ -189,6 +210,9 @@ while [ "$#" -ne 0 ]; do
     case "$1" in
         -c|--check-only)
             check_only=1
+            ;;
+        -s|--select)
+            select_download=1
             ;;
         -f|--format)
             shift
