@@ -58,16 +58,16 @@ invoke_ytdlp() {
 }
 
 download_url() {
+    if [ -n "$proxy" ]; then
+        set -- "$@" --proxy "$proxy"
+    fi
+
     if [ -n "$check_only" ]; then
         set -- "$@" -F
     elif [ -n "$format" ]; then
         set -- "$@" -f "$format" --embed-thumbnail
     elif [ -n "$download_audio" ]; then
         set -- "$@" -f 30280 --embed-thumbnail
-    fi
-
-    if [ -n "$proxy" ]; then
-        set -- "$@" --proxy "$proxy"
     fi
 
     invoke_ytdlp "$@"
