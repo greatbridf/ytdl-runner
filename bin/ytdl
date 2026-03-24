@@ -57,18 +57,28 @@ invoke_ytdlp() {
     ( yt-dlp "$@" "$url" ) | tee "$log_path"
 }
 
+check_available_formats() {
+    set -- "$@" -F
+
+    invoke_ytdlp "$@" | sed -E '1,/-----------/d;/done/d'
+}
+
 download_url() {
     if [ -n "$proxy" ]; then
         set -- "$@" --proxy "$proxy"
     fi
 
-    if [ -n "$check_only" ]; then
-        set -- "$@" -F
-    elif [ -n "$format" ]; then
-        set -- "$@" -f "$format" --embed-thumbnail
-    elif [ -n "$download_audio" ]; then
-        set -- "$@" -f 30280 --embed-thumbnail
+    if [ "$check_only" ]; then
+        check_available_formats "$@"
+        return
     fi
+
+    if [ "$download_audio" ]; then
+        format=30280
+    fi
+
+    # We are doing real downloads
+    set -- "$@" -f "$format" --embed-thumbnail
 
     invoke_ytdlp "$@"
 }
