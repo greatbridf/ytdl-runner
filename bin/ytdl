@@ -98,6 +98,11 @@ download_url() {
         format=30280
     fi
 
+    if [ -z "$format" ]; then
+        error "no format to download, skipping..."
+        return 1
+    fi
+
     # We are doing real downloads
     set -- "$@" -f "$format" --embed-thumbnail
 
