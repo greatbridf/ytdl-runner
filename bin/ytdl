@@ -86,7 +86,8 @@ auto_format() {
     available="$(check_available_formats "$@" | awk '{ print $1 }')"
 
     for lib in $(iter_files_sorted "$lib_path"); do
-        if (. "$lib" && match "$url" >/dev/null && select_format "$available"); then
+        # shellcheck disable=2086
+        if (. "$lib" && match "$url" >/dev/null && select_format $available); then
             return
         fi
     done
