@@ -1,4 +1,5 @@
 #!/bin/bash
+# vim: set et ts=4 sw=0 sts=0:
 # shellcheck source="../libexec/lib.sh"
 
 base_path="$(dirname "$(dirname "$(realpath "$0")")")"

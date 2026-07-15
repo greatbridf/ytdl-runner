@@ -1,4 +1,5 @@
 #!/bin/bash
+# vim: set et ts=4 sw=0 sts=0:
 
 bilibili_bvid() {
     regex_search '[\/=](BV[a-zA-Z1-9]+)' "$1" && return
