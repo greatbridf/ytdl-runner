@@ -78,6 +78,20 @@ check_select_format() {
     done
 }
 
+auto_format() {
+    local url="$1" available
+    shift
+
+    # Keep only format ids
+    available="$(check_available_formats "$@" | awk '{ print $1 }')"
+
+    for lib in $(iter_files_sorted "$lib_path"); do
+        if (. "$lib" && match "$url" >/dev/null && select_format "$available"); then
+            return
+        fi
+    done
+}
+
 download_url() {
     if [ -n "$proxy" ]; then
         set -- "$@" --proxy "$proxy"
@@ -92,6 +106,8 @@ download_url() {
         format="$(check_select_format "$@")"
 
         info "selected format $format"
+    else
+        format="$(auto_format "$url" "$@")"
     fi
 
     if [ "$download_audio" ]; then
@@ -99,7 +115,7 @@ download_url() {
     fi
 
     if [ -z "$format" ]; then
-        error "no format to download, skipping..."
+        error "format auto detection failed, skipping..."
         return 1
     fi
 

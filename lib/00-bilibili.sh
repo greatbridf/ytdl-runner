@@ -28,3 +28,7 @@ bilibili_short_url() {
 match() {
     bilibili_url "$1" || bilibili_short_url "$1"
 }
+
+select_format() {
+    :
+}
