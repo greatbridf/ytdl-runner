@@ -7,6 +7,8 @@ lib_path="$base_path/lib"
 libexec_path="$base_path/libexec"
 tmp_path="$(mktemp -d)"
 
+declare -a urls
+
 . "$libexec_path/lib.sh"
 
 usage() {
@@ -34,15 +36,30 @@ print_params() {
     info "check_only=$check_only download_audio=$download_audio"
     info "proxy=$proxy format=$format interval=$interval"
     info "select_download=$select_download"
-    info "urls=$urls"
+    info "urls=${urls[*]}"
     info "ytdlp_args=$*"
     info ""
     info ""
 }
 
+# $1: the url to append to $urls
+urls_append() {
+    urls+=("$1")
+}
+
+urls_count() {
+    echo "${#urls[@]}"
+}
+
+urls_empty() {
+    [ "$(urls_count)" = 0 ]
+}
+
 read_urls() {
+    local IFS="$NL"
     while read -r url; do
-        urls="$urls $url"
+        [ -n "$url" ] || continue
+        urls_append "$url"
     done
 }
 
@@ -67,7 +84,8 @@ check_available_formats() {
 }
 
 check_select_format() {
-    local IFS=$'\n'
+    # shellcheck disable=2031
+    local IFS="$NL"
     select _fmt in $(check_available_formats "$@"); do
         if [ -z "$_fmt" ]; then
             continue
@@ -156,11 +174,11 @@ post_process() {
 }
 
 download_urls() {
-    _total=$(echo "$urls" | wc -w)
+    _total=$(urls_count)
 
     order=1
     log_path="$tmp_path/$order.log"
-    for url in $urls; do
+    for url in "${urls[@]}"; do
         _pos_str="$(printf "(%4d/%4d)" "$order" "$_total")"
 
         info "downloading $_pos_str..."
@@ -202,7 +220,7 @@ check_bad_params() {
 run_interactive() {
     print_params "$@"
 
-    if [ -z "$urls" ]; then
+    if urls_empty; then
         info "enter the URLs you'd like to operate on, one per line."
         info "end with EOF."
         read_urls
@@ -210,7 +228,7 @@ run_interactive() {
         info "collected urls:"
 
         order=1
-        for url in $urls; do
+        for url in "${urls[@]}"; do
             info "$(printf "%4d: %s" "$order" "$url")"
             order=$((order + 1))
         done
@@ -222,7 +240,7 @@ run_interactive() {
 }
 
 run_non_interactive() {
-    if [ -z "$urls" ]; then
+    if urls_empty; then
         read_urls
     fi
 
@@ -260,7 +278,7 @@ while [ "$#" -ne 0 ]; do
             break
             ;;
         *)
-            urls="$urls $1"
+            urls_append "$1"
             ;;
     esac
     shift

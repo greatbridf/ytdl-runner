@@ -1,5 +1,8 @@
 #!/bin/sh
 
+NL='
+'
+
 error() {
     printf "\033[91merror: \033[0m%s\n" "$1" >&2
 }
