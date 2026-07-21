@@ -54,7 +54,7 @@ bilibili_url() {
 }
 
 bilibili_short_url() {
-    regex_search '(https://b23\.tv/\w+)' "$1"
+    grep -o 'https://b23.tv/\w*\b' <<< "$1"
 }
 
 match() {
