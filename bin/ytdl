@@ -79,9 +79,17 @@ invoke_ytdlp() {
 }
 
 check_available_formats() {
-    set -- "$@" -F
+    local output json_path
+    set -- "$@" -F -J
 
-    invoke_ytdlp "$@" | sed -E '1,/-----------/d;/done/d'
+    output="$(invoke_ytdlp "$@" | grep '^{')"
+    if grep -q '"entries":' <<< "$output"; then
+        json_path='.entries[].formats[].format_id'
+    else
+        json_path='.formats[].format_id'
+    fi
+
+    jq "$json_path" <<< "$output" | sort -u | tr -d \"
 }
 
 check_select_format() {
