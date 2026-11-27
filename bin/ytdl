@@ -21,6 +21,7 @@ options:
     -f, --format <format>          specify the format to download
     -a, --download-audio           alias of "-f 30280 -- --embed-thumbnail"
     -p, --proxy <proxy>            use the given proxy server on downloading
+    -k, --cookies <file>           use the given Netscape cookie file instead of Chrome
     -i, --interval <secs>          sleep for a while between videos
     -h, --help                     show this message
 
@@ -34,7 +35,7 @@ EOF
 print_params() {
     info "running with the following parameters:"
     info "check_only=$check_only download_audio=$download_audio"
-    info "proxy=$proxy format=$format interval=$interval"
+    info "proxy=$proxy cookies=$cookies format=$format interval=$interval"
     info "select_download=$select_download"
     info "urls=${urls[*]}"
     info "ytdlp_args=$*"
@@ -266,6 +267,10 @@ while [ "$#" -ne 0 ]; do
             shift
             proxy="$1"
             ;;
+        -k|--cookies)
+            shift
+            cookies="$1"
+            ;;
         -i|--interval)
             shift
             interval="$1"
@@ -286,7 +291,11 @@ done
 
 check_bad_params || usage 1
 
-set -- "$@" --cookies-from-browser chrome
+if [ -n "$cookies" ]; then
+    set -- "$@" --cookies "$cookies"
+else
+    set -- "$@" --cookies-from-browser chrome
+fi
 
 # if [ -t 0 ]; then
 #     run_interactive "$@"
